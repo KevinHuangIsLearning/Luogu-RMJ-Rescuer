@@ -229,7 +229,7 @@
                     setTimeout(() => {
                         submitBtn?.click();
                         GM_deleteValue('rescue_data');
-                    }, 400);
+                    }, 1000);
                     return;
                 }
             }
@@ -250,7 +250,7 @@
                     log("点击 Submit 按钮", "info");
                     submitBtn.click();
                     GM_deleteValue('rescue_data');
-                }, 400);
+                }, 1000);
             }
         };
 

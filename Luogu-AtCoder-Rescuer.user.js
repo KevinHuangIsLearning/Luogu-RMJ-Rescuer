@@ -231,7 +231,7 @@
                         setTimeout(() => {
                             GM_deleteValue('at_rescue_data');
                             document.querySelector('button#submit')?.click();
-                        }, 500);
+                        }, 1000);
                         return;
                     }
                 }
@@ -250,7 +250,7 @@
                     setTimeout(() => {
                         GM_deleteValue('at_rescue_data');
                         document.querySelector('button#submit')?.click();
-                    }, 500);
+                    }, 1000);
                 }
             } catch (e) {
                 abortHijack(e.message);
