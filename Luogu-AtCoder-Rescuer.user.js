@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Luogu-AtCoder-Rescuer
 // @namespace    http://tampermonkey.net/
+// @author KevinHuangIsLearning
 // @version      3.4.0
 // @description  洛谷提交至 AtCoder
 // @match        https://www.luogu.com.cn/problem/AT_*
