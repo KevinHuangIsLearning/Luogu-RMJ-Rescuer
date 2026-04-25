@@ -2,7 +2,7 @@
 // @name         Luogu-AtCoder-Rescuer
 // @namespace    http://tampermonkey.net/
 // @author KevinHuangIsLearning
-// @version      3.6.2
+// @version      3.5.0
 // @description  洛谷提交至 AtCoder
 // @match        https://www.luogu.com.cn/problem/AT_*
 // @match        https://atcoder.jp/contests/*/submit?RMJ=1*
