@@ -7,6 +7,12 @@
 
 本项目提供了一套**视觉劫持自救方案**：在洛谷提交页面注入“自救”按钮，点击后自动跳转至对应平台的提交页，并自动完成：**题目 ID 填入**、**代码注入**、**编程语言选择**。你只需要手动点一下验证码，剩下的交给脚本。
 
+## 快速开始
+
+1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 插件。
+2. 点击链接安装：[Luogu-Codeforces-Rescuer](https://github.com/KevinHuangIsLearning/Luogu-RMJ-Rescuer/raw/refs/heads/main/Luogu-CF-Rescuer.user.js) 和 [Luogu-AtCoder-Rescuer](https://github.com/KevinHuangIsLearning/Luogu-RMJ-Rescuer/raw/refs/heads/main/Luogu-AtCoder-Rescuer.user.js)
+3. 刷新洛谷题目提交页面，你将看到一个“提交至 AtCoder/Codeforces”的按钮。**Now Enjoy!**
+
 ## 核心功能
 
 - **视觉劫持**：在 AtCoder/CF 验证页全屏覆盖白色遮罩，营造“洛谷风格”提交环境。
@@ -15,14 +21,6 @@
   - **Codeforces**：自动定位题目 ID，模拟输入注入源代码。
 - **验证码上移**：精准优化 Cloudflare 验证框位置，避免遮挡，让你“大战机器人”时心情更舒畅。
 - **无感清理**：提交成功后自动清除脚本占用的本地缓存。
-
-## 安装方式
-
-1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 插件。
-2. 将项目中的脚本添加至油猴：
-   - `Luogu-AtCoder 提交页精准自救器.user.js`
-   - `Luogu-CF 提交页精准自救器.user.js`
-3. 刷新洛谷题目提交页面，你将看到一个“提交至 AtCoder/Codeforces”的蓝色按钮。
 
 ## 使用指南
 
