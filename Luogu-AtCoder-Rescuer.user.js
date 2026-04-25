@@ -99,31 +99,39 @@
         GM_addStyle(`
             #rmj-hijack-layer {
                 position: fixed !important; inset: 0 !important;
-                background: #ffffff !important; z-index: 999990 !important;
-                display: flex !important; flex-direction: column !important;
-                align-items: center !important; justify-content: flex-start !important;
-                padding-top: 25vh !important; /* 让内容从视口 25% 处开始 */
+                background: rgba(255, 255, 255, 0.7) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
+                z-index: 999990 !important;
+                display: flex !important; align-items: center !important;
+                justify-content: center !important;
+            }
+            .rmj-container {
+                display: flex !important; flex-direction: row !important;
+                align-items: center !important; justify-content: center !important;
+                gap: 15px !important;
+                z-index: 999992 !important;
+                margin-top: -15vh !important;
             }
             .rmj-title {
                 font-family: sans-serif !important; font-size: 28px !important;
                 font-weight: 600 !important; color: #000 !important;
-                margin-bottom: 20px !important;
+                margin: 0 !important;
             }
             .rmj-loader {
-                width: 40px !important; height: 40px !important;
-                border: 4px solid #f3f3f3 !important;
+                width: 32px !important; height: 32px !important;
+                border: 4px solid rgba(0,0,0,0.1) !important;
                 border-top: 4px solid #3498db !important;
                 border-radius: 50% !important;
                 animation: rmj-spin 1s linear infinite !important;
-                margin-bottom: 20px !important;
             }
             @keyframes rmj-spin {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
             }
-            /* 验证码位置上移：从 55% 移到 45% */
+            /* 验证码位置下移：从 45% 移到 58% */
             .cf-challenge, iframe[src*="challenges.cloudflare.com"] {
-                position: fixed !important; top: 45% !important; left: 50% !important;
+                position: fixed !important; top: 58% !important; left: 50% !important;
                 transform: translate(-50%, -50%) !important; z-index: 1000000 !important;
             }
         `);
@@ -162,8 +170,10 @@
                 const layer = document.createElement('div');
                 layer.id = 'rmj-hijack-layer';
                 layer.innerHTML = `
-                    <div class="rmj-loader"></div>
-                    <div class="rmj-title" id="rmj-msg">等待 CF 加载...</div>
+                    <div class="rmj-container">
+                        <div class="rmj-loader"></div>
+                        <div class="rmj-title" id="rmj-msg">请准备大战机器人</div>
+                    </div>
                 `;
                 document.documentElement.appendChild(layer);
             }
@@ -171,7 +181,7 @@
             try {
                 const msgEl = document.getElementById('rmj-msg');
                 const hasShield = document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]');
-                if (hasShield && msgEl && msgEl.innerText === "等待 CF 加载...") {
+                if (hasShield && msgEl && msgEl.innerText === "请准备大战机器人") {
                     msgEl.innerText = "请大战机器人";
                 }
 
@@ -213,11 +223,11 @@
                 if (!hasShield && !isSuccess && Date.now() - startTime > 2000) {
                     if (langReady && codeReady) {
                         log("未检测到 CF 盾，且表单已就绪，尝试直接提交", "warn");
-                        if (msgEl) msgEl.innerText = "未检测到验证码，直接提交...";
-                        const loader = document.querySelector('.rmj-loader');
-                        if (loader) loader.style.display = 'none';
+                        if (msgEl) msgEl.innerText = "正在提交...";
                         isSuccess = true;
                         clearInterval(checkInterval);
+                        const loader = document.querySelector('.rmj-loader');
+                        if (loader) loader.style.display = 'none';
                         setTimeout(() => {
                             GM_deleteValue('at_rescue_data');
                             document.querySelector('button#submit')?.click();
@@ -230,7 +240,7 @@
                 const token = document.querySelector('input[name="cf-turnstile-response"]');
                 if (token && token.value.length > 20) {
                     if (msgEl) {
-                        msgEl.innerText = "验证成功，提交中...";
+                        msgEl.innerText = "正在提交...";
                         msgEl.style.color = "#2ecc71";
                     }
                     const loader = document.querySelector('.rmj-loader');

@@ -39,32 +39,32 @@
         GM_addStyle(`
             #rmj-hijack-layer {
                 position: fixed !important; inset: 0 !important;
-                background: #ffffff !important; /* 纯白色背景 */
+                background: rgba(255, 255, 255, 0.7) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
                 z-index: 999990 !important;
-                display: flex !important; flex-direction: column !important;
-                align-items: center !important;
+                display: flex !important; align-items: center !important;
+                justify-content: center !important;
             }
             .rmj-container {
-                position: absolute !important;
-                top: 35% !important; /* 向上平移，避免和 50% 位置的验证码重叠 */
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                text-align: center !important;
+                display: flex !important; flex-direction: row !important;
+                align-items: center !important; justify-content: center !important;
+                gap: 15px !important;
                 z-index: 999992 !important;
+                margin-top: -15vh !important; /* 向上偏移，腾出空间给验证码 */
             }
             .rmj-title {
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
                 font-size: 28px !important; font-weight: 600 !important;
                 color: #000 !important;
-                margin-bottom: 15px !important;
+                margin: 0 !important;
             }
             .rmj-loader {
-                width: 40px !important; height: 40px !important;
-                border: 4px solid #f3f3f3 !important;
+                width: 32px !important; height: 32px !important;
+                border: 4px solid rgba(0,0,0,0.1) !important;
                 border-top: 4px solid #3498db !important;
                 border-radius: 50% !important;
                 animation: rmj-spin 1s linear infinite !important;
-                margin: 0 auto 20px auto !important;
             }
             @keyframes rmj-spin {
                 0% { transform: rotate(0deg); }
@@ -73,7 +73,7 @@
             /* 验证码定位 */
             .cf-turnstile, iframe[src*="challenges.cloudflare.com"] {
                 position: fixed !important;
-                top: 52% !important;
+                top: 58% !important;
                 left: 50% !important;
                 transform: translate(-50%, -50%) !important;
                 z-index: 1000000 !important;
@@ -173,7 +173,7 @@
             layer.innerHTML = `
                 <div class="rmj-container">
                     <div class="rmj-loader"></div>
-                    <div class="rmj-title">等待 CF 加载...</div>
+                    <div class="rmj-title">请准备大战机器人</div>
                 </div>
             `;
             document.documentElement.appendChild(layer);
@@ -190,7 +190,7 @@
             const titleEl = document.querySelector('.rmj-title');
 
             const hasShield = document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]');
-            if (hasShield && titleEl && titleEl.innerText === "等待 CF 加载...") {
+            if (hasShield && titleEl && titleEl.innerText === "请准备大战机器人") {
                 titleEl.innerText = "请大战机器人";
             }
 
@@ -221,7 +221,7 @@
             if (!hasShield && !isSuccess && Date.now() - startTime > 2000) {
                 if (idInput && idInput.value === data.id && aceContent && aceContent.dataset.done === "true") {
                     log("未检测到 CF 盾，且表单已就绪，尝试直接提交", "warn");
-                    if (titleEl) titleEl.innerText = "未检测到验证码，直接提交...";
+                    if (titleEl) titleEl.innerText = "正在提交...";
                     const loader = document.querySelector('.rmj-loader');
                     if (loader) loader.style.display = 'none';
                     isSuccess = true;
@@ -238,7 +238,7 @@
             if (tokenInput && tokenInput.value.length > 20) {
                 log("检测到验证码已完成！", "success");
                 if (titleEl) {
-                    titleEl.innerText = "验证成功，正在提交...";
+                    titleEl.innerText = "正在提交...";
                     titleEl.style.color = "#2ecc71";
                 }
                 const loader = document.querySelector('.rmj-loader');
