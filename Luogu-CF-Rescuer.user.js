@@ -2,7 +2,7 @@
 // @name         Luogu-CF-Rescuer
 // @namespace    http://tampermonkey.net/
 // @author KevinHuangIsLearning
-// @version      3.5.0
+// @version      3.6.2
 // @description  洛谷提交至 Codeforces
 // @match        https://www.luogu.com.cn/problem/CF*
 // @match        https://codeforces.com/problemset/submit*
