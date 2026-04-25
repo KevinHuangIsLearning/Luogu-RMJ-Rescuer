@@ -1,6 +1,7 @@
 // ==UserScript==
 // @name         Luogu-CF-Rescuer
 // @namespace    http://tampermonkey.net/
+// @author KevinHuangIsLearning
 // @version      3.0.4
 // @description  洛谷提交至 Codeforces
 // @match        https://www.luogu.com.cn/problem/CF*
