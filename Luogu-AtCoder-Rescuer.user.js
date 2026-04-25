@@ -109,6 +109,18 @@
                 font-weight: 600 !important; color: #000 !important;
                 margin-bottom: 20px !important;
             }
+            .rmj-loader {
+                width: 40px !important; height: 40px !important;
+                border: 4px solid #f3f3f3 !important;
+                border-top: 4px solid #3498db !important;
+                border-radius: 50% !important;
+                animation: rmj-spin 1s linear infinite !important;
+                margin-bottom: 20px !important;
+            }
+            @keyframes rmj-spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
             /* 验证码位置上移：从 55% 移到 45% */
             .cf-challenge, iframe[src*="challenges.cloudflare.com"] {
                 position: fixed !important; top: 45% !important; left: 50% !important;
@@ -117,12 +129,31 @@
         `);
 
         let isFailed = false;
+        let isSuccess = false;
+        const startTime = Date.now();
         const abortHijack = (reason) => {
-            if (isFailed) return;
+            if (isFailed || isSuccess) return;
             isFailed = true;
             const layer = document.getElementById('rmj-hijack-layer');
-            if (layer) layer.style.display = 'none';
-            alert(`[RMJ自救助手] 自动填表失败：${reason}`);
+            const msg = document.getElementById('rmj-msg');
+            if (msg) {
+                msg.innerText = `大战机器人超时，已切换至手动模式`;
+                msg.style.color = "#ff4757";
+            }
+            const loader = document.querySelector('.rmj-loader');
+            if (loader) loader.style.display = 'none';
+            
+            setTimeout(() => {
+                if (layer) {
+                    layer.style.transition = "opacity 0.5s";
+                    layer.style.opacity = "0";
+                    setTimeout(() => {
+                        layer.remove();
+                        log("已移除劫持层", "info");
+                        clearInterval(checkInterval);
+                    }, 500);
+                }
+            }, 1500);
         };
 
         const autoProcess = () => {
@@ -130,11 +161,20 @@
             if (!document.getElementById('rmj-hijack-layer')) {
                 const layer = document.createElement('div');
                 layer.id = 'rmj-hijack-layer';
-                layer.innerHTML = `<div class="rmj-title" id="rmj-msg">请大战机器人</div>`;
+                layer.innerHTML = `
+                    <div class="rmj-loader"></div>
+                    <div class="rmj-title" id="rmj-msg">等待 CF 加载...</div>
+                `;
                 document.documentElement.appendChild(layer);
             }
 
             try {
+                const msgEl = document.getElementById('rmj-msg');
+                const hasShield = document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+                if (hasShield && msgEl && msgEl.innerText === "等待 CF 加载...") {
+                    msgEl.innerText = "请大战机器人";
+                }
+
                 // 自动选题
                 const taskSelect = document.querySelector('select#select-task');
                 if (taskSelect && taskSelect.value !== data.taskId) {
@@ -144,27 +184,58 @@
 
                 // 自动选语言
                 const langSelect = document.querySelector('select[name="data.LanguageId"]');
+                let langReady = false;
                 if (langSelect) {
                     const targetValue = data.langId || "6017";
                     if (langSelect.value !== targetValue) {
                         log(`自动选择语言 ID: ${targetValue}`, "success");
                         langSelect.value = targetValue;
                         if (window.$) window.$('select[name="data.LanguageId"]').trigger('change');
+                    } else {
+                        langReady = true;
                     }
                 }
 
                 // 代码注入
+                let codeReady = false;
                 if (typeof unsafeWindow !== 'undefined' && unsafeWindow.ace) {
                     const editor = unsafeWindow.ace.edit("editor");
-                    if (editor && editor.getValue().length < 5) {
-                        editor.setValue(data.code, 1);
+                    if (editor) {
+                        if (editor.getValue().length < 5) {
+                            editor.setValue(data.code, 1);
+                        } else {
+                            codeReady = true;
+                        }
+                    }
+                }
+
+                // 无盾自动提交逻辑：2秒后若无盾且表单已填充
+                if (!hasShield && !isSuccess && Date.now() - startTime > 2000) {
+                    if (langReady && codeReady) {
+                        log("未检测到 CF 盾，且表单已就绪，尝试直接提交", "warn");
+                        if (msgEl) msgEl.innerText = "未检测到验证码，直接提交...";
+                        const loader = document.querySelector('.rmj-loader');
+                        if (loader) loader.style.display = 'none';
+                        isSuccess = true;
+                        clearInterval(checkInterval);
+                        setTimeout(() => {
+                            GM_deleteValue('at_rescue_data');
+                            document.querySelector('button#submit')?.click();
+                        }, 500);
+                        return;
                     }
                 }
 
                 // 提交触发
                 const token = document.querySelector('input[name="cf-turnstile-response"]');
                 if (token && token.value.length > 20) {
-                    document.getElementById('rmj-msg').innerText = "验证成功，提交中...";
+                    if (msgEl) {
+                        msgEl.innerText = "验证成功，提交中...";
+                        msgEl.style.color = "#2ecc71";
+                    }
+                    const loader = document.querySelector('.rmj-loader');
+                    if (loader) loader.style.display = 'none';
+                    isSuccess = true;
                     clearInterval(checkInterval);
                     setTimeout(() => {
                         GM_deleteValue('at_rescue_data');
@@ -177,6 +248,7 @@
         };
 
         const checkInterval = setInterval(autoProcess, 500);
-        setTimeout(() => { if (!isFailed) abortHijack("超时"); }, 40000);
+        setTimeout(() => { abortHijack("超时"); }, 5000);
+        setTimeout(() => clearInterval(checkInterval), 60000);
     }
 })();

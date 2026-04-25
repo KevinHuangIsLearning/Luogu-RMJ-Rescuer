@@ -58,6 +58,18 @@
                 color: #000 !important;
                 margin-bottom: 15px !important;
             }
+            .rmj-loader {
+                width: 40px !important; height: 40px !important;
+                border: 4px solid #f3f3f3 !important;
+                border-top: 4px solid #3498db !important;
+                border-radius: 50% !important;
+                animation: rmj-spin 1s linear infinite !important;
+                margin: 0 auto 20px auto !important;
+            }
+            @keyframes rmj-spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
             /* 验证码定位 */
             .cf-turnstile, iframe[src*="challenges.cloudflare.com"] {
                 position: fixed !important;
@@ -149,6 +161,8 @@
         const data = GM_getValue('rescue_data');
         if (!data || !location.search.includes('RMJ=1')) return;
 
+        let isSuccess = false;
+        const startTime = Date.now();
         log("同步数据读取成功，启动劫持层", "success");
 
         const initOverlay = () => {
@@ -158,7 +172,8 @@
 
             layer.innerHTML = `
                 <div class="rmj-container">
-                    <div class="rmj-title">请大战机器人</div>
+                    <div class="rmj-loader"></div>
+                    <div class="rmj-title">等待 CF 加载...</div>
                 </div>
             `;
             document.documentElement.appendChild(layer);
@@ -172,6 +187,12 @@
             const langSelect = document.querySelector('select[name="programTypeId"]');
             const aceInput = document.querySelector('.ace_text-input');
             const submitBtn = document.querySelector('#singlePageSubmitButton');
+            const titleEl = document.querySelector('.rmj-title');
+
+            const hasShield = document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+            if (hasShield && titleEl && titleEl.innerText === "等待 CF 加载...") {
+                titleEl.innerText = "请大战机器人";
+            }
 
             if (idInput && idInput.value !== data.id) {
                 idInput.value = data.id;
@@ -196,11 +217,33 @@
                 }
             }
 
+            // 无盾自动提交逻辑：2秒后若无盾且表单已填充
+            if (!hasShield && !isSuccess && Date.now() - startTime > 2000) {
+                if (idInput && idInput.value === data.id && aceContent && aceContent.dataset.done === "true") {
+                    log("未检测到 CF 盾，且表单已就绪，尝试直接提交", "warn");
+                    if (titleEl) titleEl.innerText = "未检测到验证码，直接提交...";
+                    const loader = document.querySelector('.rmj-loader');
+                    if (loader) loader.style.display = 'none';
+                    isSuccess = true;
+                    clearInterval(checkInterval);
+                    setTimeout(() => {
+                        submitBtn?.click();
+                        GM_deleteValue('rescue_data');
+                    }, 400);
+                    return;
+                }
+            }
+
             const tokenInput = document.querySelector('input[name^="cf-turnstile-response"]');
             if (tokenInput && tokenInput.value.length > 20) {
                 log("检测到验证码已完成！", "success");
-                document.querySelector('.rmj-title').innerText = "验证成功，正在提交...";
-                document.querySelector('.rmj-title').style.color = "#2ecc71";
+                if (titleEl) {
+                    titleEl.innerText = "验证成功，正在提交...";
+                    titleEl.style.color = "#2ecc71";
+                }
+                const loader = document.querySelector('.rmj-loader');
+                if (loader) loader.style.display = 'none';
+                isSuccess = true;
 
                 clearInterval(checkInterval);
                 setTimeout(() => {
@@ -212,6 +255,34 @@
         };
 
         const checkInterval = setInterval(autoProcess, 500);
+
+        // 5秒超时逻辑：如果还在运行且未成功，则提示失败并移除背景
+        setTimeout(() => {
+            if (!isSuccess) {
+                log("5秒超时，任务可能失败或加载缓慢，移除背景层", "warn");
+                const title = document.querySelector('.rmj-title');
+                const loader = document.querySelector('.rmj-loader');
+                if (loader) loader.style.display = 'none';
+                if (title) {
+                    title.innerText = "大战机器人超时，已切换至手动模式";
+                    title.style.color = "#ff4757";
+                }
+                
+                setTimeout(() => {
+                    const layer = document.getElementById('rmj-hijack-layer');
+                    if (layer) {
+                        layer.style.transition = "opacity 0.5s";
+                        layer.style.opacity = "0";
+                        setTimeout(() => {
+                            layer.remove();
+                            log("已移除劫持层", "info");
+                            clearInterval(checkInterval);
+                        }, 500);
+                    }
+                }, 1500);
+            }
+        }, 5000);
+
         setTimeout(() => clearInterval(checkInterval), 60000);
     }
 })();
