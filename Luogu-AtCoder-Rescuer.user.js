@@ -2,7 +2,7 @@
 // @name         Luogu-AtCoder-Rescuer
 // @namespace    http://tampermonkey.net/
 // @author KevinHuangIsLearning
-// @version      3.6.2
+// @version      3.7.0
 // @description  洛谷提交至 AtCoder
 // @match        https://www.luogu.com.cn/problem/AT_*
 // @match        https://atcoder.jp/contests/*/submit?RMJ=1*
@@ -95,6 +95,9 @@
         const data = GM_getValue('at_rescue_data');
         if (!data || !location.search.includes('RMJ=1')) return;
 
+        const isDebug = location.search.includes('debug');
+        const SHOULD_TIMEOUT = isDebug ? 3000 : 10000;
+
         // 核心改动：上移 top 值
         GM_addStyle(`
             #rmj-hijack-layer {
@@ -103,7 +106,8 @@
                 backdrop-filter: blur(12px) !important;
                 -webkit-backdrop-filter: blur(12px) !important;
                 z-index: 999990 !important;
-                display: flex !important; align-items: center !important;
+                display: flex !important; flex-direction: column !important;
+                align-items: center !important;
                 justify-content: center !important;
             }
             .rmj-container {
@@ -117,6 +121,17 @@
                 font-family: sans-serif !important; font-size: 28px !important;
                 font-weight: 600 !important; color: #000 !important;
                 margin: 0 !important;
+            }
+            .rmj-manual-submit {
+                font-family: sans-serif !important; font-size: 16px !important;
+                color: #3498db !important; cursor: pointer !important;
+                margin-top: 20px !important;
+                text-decoration: underline !important;
+                z-index: 999992 !important;
+                display: none !important;
+            }
+            .rmj-manual-submit:hover {
+                color: #2980b9 !important;
             }
             .rmj-loader {
                 width: 32px !important; height: 32px !important;
@@ -134,35 +149,29 @@
                 position: fixed !important; top: 58% !important; left: 50% !important;
                 transform: translate(-50%, -50%) !important; z-index: 1000000 !important;
             }
+            @media (prefers-color-scheme: dark) {
+                #rmj-hijack-layer {
+                    background: rgba(0, 0, 0, 0.7) !important;
+                }
+                .rmj-title {
+                    color: #fff !important;
+                }
+                .rmj-loader {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                    border-top-color: #3498db !important;
+                }
+                .rmj-manual-submit {
+                    color: #5dade2 !important;
+                }
+                .rmj-manual-submit:hover {
+                    color: #85c1e9 !important;
+                }
+            }
         `);
 
         let isFailed = false;
         let isSuccess = false;
-        const startTime = Date.now();
-        const abortHijack = (reason) => {
-            if (isFailed || isSuccess) return;
-            isFailed = true;
-            const layer = document.getElementById('rmj-hijack-layer');
-            const msg = document.getElementById('rmj-msg');
-            if (msg) {
-                msg.innerText = `大战机器人超时，已切换至手动模式`;
-                msg.style.color = "#ff4757";
-            }
-            const loader = document.querySelector('.rmj-loader');
-            if (loader) loader.style.display = 'none';
-            
-            setTimeout(() => {
-                if (layer) {
-                    layer.style.transition = "opacity 0.5s";
-                    layer.style.opacity = "0";
-                    setTimeout(() => {
-                        layer.remove();
-                        log("已移除劫持层", "info");
-                        clearInterval(checkInterval);
-                    }, 500);
-                }
-            }, 1500);
-        };
+        let timeoutTimer = null;
 
         const autoProcess = () => {
             if (isFailed) return;
@@ -174,15 +183,36 @@
                         <div class="rmj-loader"></div>
                         <div class="rmj-title" id="rmj-msg">请准备大战机器人</div>
                     </div>
+                    <div class="rmj-manual-submit"></div>
                 `;
                 document.documentElement.appendChild(layer);
             }
 
             try {
                 const msgEl = document.getElementById('rmj-msg');
-                const hasShield = document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+                const hasShield = isDebug ? false : (document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]'));
                 if (hasShield && msgEl && msgEl.innerText === "请准备大战机器人") {
                     msgEl.innerText = "请大战机器人";
+                    const manualSubmit = document.querySelector('.rmj-manual-submit');
+                    if (manualSubmit && !manualSubmit.dataset.hooked) {
+                        manualSubmit.dataset.hooked = 'true';
+                        manualSubmit.textContent = '切换到手动模式';
+                        manualSubmit.style.display = 'block';
+                        manualSubmit.addEventListener('click', () => {
+                            if (timeoutTimer) clearTimeout(timeoutTimer);
+                            isFailed = true;
+                            clearInterval(checkInterval);
+                            const layer = document.getElementById('rmj-hijack-layer');
+                            if (layer) {
+                                layer.style.transition = "opacity 0.5s";
+                                layer.style.opacity = "0";
+                                setTimeout(() => {
+                                    layer.remove();
+                                    log("已切换到手动模式", "info");
+                                }, 500);
+                            }
+                        });
+                    }
                 }
 
                 // 自动选题
@@ -219,26 +249,9 @@
                     }
                 }
 
-                // 无盾自动提交逻辑：2秒后若无盾且表单已填充
-                if (!hasShield && !isSuccess && Date.now() - startTime > 2000) {
-                    if (langReady && codeReady) {
-                        log("未检测到 CF 盾，且表单已就绪，尝试直接提交", "warn");
-                        if (msgEl) msgEl.innerText = "正在提交...";
-                        isSuccess = true;
-                        clearInterval(checkInterval);
-                        const loader = document.querySelector('.rmj-loader');
-                        if (loader) loader.style.display = 'none';
-                        setTimeout(() => {
-                            GM_deleteValue('at_rescue_data');
-                            document.querySelector('button#submit')?.click();
-                        }, 1000);
-                        return;
-                    }
-                }
-
                 // 提交触发
                 const token = document.querySelector('input[name="cf-turnstile-response"]');
-                if (token && token.value.length > 20) {
+                if (!isFailed && token && token.value.length > 20) {
                     if (msgEl) {
                         msgEl.innerText = "正在提交...";
                         msgEl.style.color = "#2ecc71";
@@ -253,12 +266,43 @@
                     }, 1000);
                 }
             } catch (e) {
-                abortHijack(e.message);
+                isFailed = true;
+                log("发生错误: " + e.message, "error");
             }
         };
 
         const checkInterval = setInterval(autoProcess, 500);
-        setTimeout(() => { abortHijack("超时"); }, 5000);
+
+        // 10秒超时逻辑：未检测到CF盾则直接提交，有盾则继续等待
+        timeoutTimer = setTimeout(() => {
+            if (isSuccess || isFailed) return;
+            const hasShield = isDebug ? false : (document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]'));
+            if (!hasShield) {
+                log("未检测到CF盾，尝试直接提交" + (isDebug ? " [DEBUG模拟]" : ""), "warn");
+                isSuccess = true;
+                const msg = document.getElementById('rmj-msg');
+                const loader = document.querySelector('.rmj-loader');
+                if (loader) loader.style.display = 'none';
+                if (msg) msg.innerText = "正在提交...";
+                clearInterval(checkInterval);
+                setTimeout(() => {
+                    document.querySelector('button#submit')?.click();
+                    GM_deleteValue('at_rescue_data');
+                    const layer = document.getElementById('rmj-hijack-layer');
+                    if (layer) {
+                        layer.style.transition = "opacity 0.5s";
+                        layer.style.opacity = "0";
+                        setTimeout(() => {
+                            layer.remove();
+                            log("自动提交完成，已移除劫持层", "info");
+                        }, 500);
+                    }
+                }, 500);
+            } else {
+                log("CF盾已加载，继续等待验证", "info");
+            }
+        }, SHOULD_TIMEOUT);
+
         setTimeout(() => clearInterval(checkInterval), 60000);
     }
 })();

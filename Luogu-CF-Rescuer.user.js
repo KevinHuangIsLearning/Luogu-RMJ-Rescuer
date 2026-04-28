@@ -2,7 +2,7 @@
 // @name         Luogu-CF-Rescuer
 // @namespace    http://tampermonkey.net/
 // @author KevinHuangIsLearning
-// @version      3.6.2
+// @version      3.7.0
 // @description  洛谷提交至 Codeforces
 // @match        https://www.luogu.com.cn/problem/CF*
 // @match        https://codeforces.com/problemset/submit*
@@ -43,7 +43,8 @@
                 backdrop-filter: blur(12px) !important;
                 -webkit-backdrop-filter: blur(12px) !important;
                 z-index: 999990 !important;
-                display: flex !important; align-items: center !important;
+                display: flex !important; flex-direction: column !important;
+                align-items: center !important;
                 justify-content: center !important;
             }
             .rmj-container {
@@ -58,6 +59,19 @@
                 font-size: 28px !important; font-weight: 600 !important;
                 color: #000 !important;
                 margin: 0 !important;
+            }
+            .rmj-manual-submit {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                font-size: 16px !important;
+                color: #3498db !important;
+                cursor: pointer !important;
+                margin-top: 20px !important;
+                text-decoration: underline !important;
+                z-index: 999992 !important;
+                display: none !important;
+            }
+            .rmj-manual-submit:hover {
+                color: #2980b9 !important;
             }
             .rmj-loader {
                 width: 32px !important; height: 32px !important;
@@ -77,6 +91,24 @@
                 left: 50% !important;
                 transform: translate(-50%, -50%) !important;
                 z-index: 1000000 !important;
+            }
+            @media (prefers-color-scheme: dark) {
+                #rmj-hijack-layer {
+                    background: rgba(0, 0, 0, 0.7) !important;
+                }
+                .rmj-title {
+                    color: #fff !important;
+                }
+                .rmj-loader {
+                    border-color: rgba(255, 255, 255, 0.1) !important;
+                    border-top-color: #3498db !important;
+                }
+                .rmj-manual-submit {
+                    color: #5dade2 !important;
+                }
+                .rmj-manual-submit:hover {
+                    color: #85c1e9 !important;
+                }
             }
         `);
     }
@@ -161,9 +193,14 @@
         const data = GM_getValue('rescue_data');
         if (!data || !location.search.includes('RMJ=1')) return;
 
+        const isDebug = location.search.includes('debug');
+
         let isSuccess = false;
-        const startTime = Date.now();
-        log("同步数据读取成功，启动劫持层", "success");
+        let isFailed = false;
+        let timeoutTimer = null;
+        log("同步数据读取成功，启动劫持层" + (isDebug ? " [DEBUG模式]" : ""), "success");
+
+        const SHOULD_TIMEOUT = isDebug ? 3000 : 10000;
 
         const initOverlay = () => {
             if (document.getElementById('rmj-hijack-layer')) return;
@@ -175,12 +212,14 @@
                     <div class="rmj-loader"></div>
                     <div class="rmj-title">请准备大战机器人</div>
                 </div>
+                <div class="rmj-manual-submit"></div>
             `;
             document.documentElement.appendChild(layer);
             log("视觉劫持层已挂载 (纯白模式)", "info");
         };
 
         const autoProcess = () => {
+            if (isFailed) return;
             initOverlay();
 
             const idInput = document.querySelector('input[name="submittedProblemCode"]');
@@ -189,9 +228,29 @@
             const submitBtn = document.querySelector('#singlePageSubmitButton');
             const titleEl = document.querySelector('.rmj-title');
 
-            const hasShield = document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]');
+            const hasShield = isDebug ? false : (document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]'));
             if (hasShield && titleEl && titleEl.innerText === "请准备大战机器人") {
                 titleEl.innerText = "请大战机器人";
+                const manualSubmit = document.querySelector('.rmj-manual-submit');
+                if (manualSubmit && !manualSubmit.dataset.hooked) {
+                    manualSubmit.dataset.hooked = 'true';
+                    manualSubmit.textContent = '切换到手动模式';
+                    manualSubmit.style.display = 'block';
+                    manualSubmit.addEventListener('click', () => {
+                        if (timeoutTimer) clearTimeout(timeoutTimer);
+                        isFailed = true;
+                        clearInterval(checkInterval);
+                        const layer = document.getElementById('rmj-hijack-layer');
+                        if (layer) {
+                            layer.style.transition = "opacity 0.5s";
+                            layer.style.opacity = "0";
+                            setTimeout(() => {
+                                layer.remove();
+                                log("已切换到手动模式", "info");
+                            }, 500);
+                        }
+                    });
+                }
             }
 
             if (idInput && idInput.value !== data.id) {
@@ -217,25 +276,8 @@
                 }
             }
 
-            // 无盾自动提交逻辑：2秒后若无盾且表单已填充
-            if (!hasShield && !isSuccess && Date.now() - startTime > 2000) {
-                if (idInput && idInput.value === data.id && aceContent && aceContent.dataset.done === "true") {
-                    log("未检测到 CF 盾，且表单已就绪，尝试直接提交", "warn");
-                    if (titleEl) titleEl.innerText = "正在提交...";
-                    const loader = document.querySelector('.rmj-loader');
-                    if (loader) loader.style.display = 'none';
-                    isSuccess = true;
-                    clearInterval(checkInterval);
-                    setTimeout(() => {
-                        submitBtn?.click();
-                        GM_deleteValue('rescue_data');
-                    }, 1000);
-                    return;
-                }
-            }
-
             const tokenInput = document.querySelector('input[name^="cf-turnstile-response"]');
-            if (tokenInput && tokenInput.value.length > 20) {
+            if (!isFailed && tokenInput && tokenInput.value.length > 20) {
                 log("检测到验证码已完成！", "success");
                 if (titleEl) {
                     titleEl.innerText = "正在提交...";
@@ -256,32 +298,36 @@
 
         const checkInterval = setInterval(autoProcess, 500);
 
-        // 5秒超时逻辑：如果还在运行且未成功，则提示失败并移除背景
-        setTimeout(() => {
-            if (!isSuccess) {
-                log("5秒超时，任务可能失败或加载缓慢，移除背景层", "warn");
+        // 10秒超时逻辑：未检测到CF盾则直接提交，有盾则继续等待
+        timeoutTimer = setTimeout(() => {
+            if (isSuccess || isFailed) return;
+            const hasShield = isDebug ? false : (document.querySelector('.cf-turnstile') || document.querySelector('iframe[src*="challenges.cloudflare.com"]'));
+            if (!hasShield) {
+                log("未检测到CF盾，尝试直接提交" + (isDebug ? " [DEBUG模拟]" : ""), "warn");
+                isSuccess = true;
                 const title = document.querySelector('.rmj-title');
                 const loader = document.querySelector('.rmj-loader');
                 if (loader) loader.style.display = 'none';
-                if (title) {
-                    title.innerText = "大战机器人超时，已切换至手动模式";
-                    title.style.color = "#ff4757";
-                }
-                
+                if (title) title.innerText = "正在提交...";
+                clearInterval(checkInterval);
                 setTimeout(() => {
+                    const submitBtn = document.querySelector('#singlePageSubmitButton');
+                    submitBtn?.click();
+                    GM_deleteValue('rescue_data');
                     const layer = document.getElementById('rmj-hijack-layer');
                     if (layer) {
                         layer.style.transition = "opacity 0.5s";
                         layer.style.opacity = "0";
                         setTimeout(() => {
                             layer.remove();
-                            log("已移除劫持层", "info");
-                            clearInterval(checkInterval);
+                            log("自动提交完成，已移除劫持层", "info");
                         }, 500);
                     }
-                }, 1500);
+                }, 500);
+            } else {
+                log("CF盾已加载，继续等待验证", "info");
             }
-        }, 5000);
+        }, SHOULD_TIMEOUT);
 
         setTimeout(() => clearInterval(checkInterval), 60000);
     }
